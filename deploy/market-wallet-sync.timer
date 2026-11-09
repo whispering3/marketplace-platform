@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Market deposits every minute
+
+[Timer]
+OnBootSec=60
+OnUnitInactiveSec=60
+RandomizedDelaySec=10
+Unit=market-wallet-sync.service
+
+[Install]
+WantedBy=timers.target

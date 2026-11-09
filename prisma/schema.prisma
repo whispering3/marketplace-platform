@@ -1,0 +1,657 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  sessionVersion Int @default(0)
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String
+  passwordSalt String    @default("") // Unique salt per user
+  pin          String?   // Extra security pin
+  pgpPublicKey String?
+  role         String    @default("BUYER") // BUYER, VENDOR, STAFF, ADMIN
+  staffPermissions String[] @default([])
+  trustScore   Int       @default(0)
+  hasPaidBond  Boolean   @default(false)
+  isBanned     Boolean   @default(false)
+  staffId      String?   // MSID (Master Staff ID) - Only for admins
+  joinDate     DateTime  @default(now())
+  walletBalanceXMR Decimal  @default(0) @db.Decimal(30, 12)
+  antiPhishingPhrase String? // Unique phrase shown on login to verify authenticity
+  isPhraseViewed     Boolean   @default(false) // Privacy flag to ensure phrase is shown once secure
+  vendorTerms        String? // Professional Terms of Service for storefronts
+  suicidePin         String? // Deprecated legacy field; kept only for migration compatibility.
+  isVacationMode     Boolean   @default(false)
+  affiliateCode      String    @unique @default(cuid())
+  referredById       String?
+  referredBy         User?     @relation("Referrals", fields: [referredById], references: [id])
+  referrals          User[]    @relation("Referrals")
+
+  // Advanced Meritocracy
+  xp                 Int       @default(0)
+  level              Int       @default(1)
+  badges             String?   // [LEGEND], [WARRIOR]
+  personalMirrorToken String?  @unique
+
+  // Advanced Vendor Intelligence
+  totalDispatchHours Int       @default(0)
+  dispatchedOrdersCount Int    @default(0)
+  disputesWon        Int       @default(0)
+  disputesTotal      Int       @default(0)
+
+  products       Product[]
+  orders         Order[]   @relation("BuyerOrders")
+  vendorOrders   Order[]   @relation("VendorOrders")
+  reviews        Review[]  @relation("BuyerReviews")
+  sentMessages   InboxMessage[] @relation("SentMessages")
+  receivedMessages InboxMessage[] @relation("ReceivedMessages")
+  conversationsA Conversation[] @relation("ConvA")
+  conversationsB Conversation[] @relation("ConvB")
+
+  withdrawals    WithdrawalRequest[]
+
+  // Support and Financial Expansion
+  depositAddresses DepositAddress[]
+  supportTickets   SupportTicket[]
+  buyerSupportTickets SupportTicket[] @relation("BuyerSupportTickets")
+  vendorSupportTickets SupportTicket[] @relation("VendorSupportTickets")
+  notifications    Notification[]
+  privateMirrors   PrivateMirror[]
+  favorites        Favorite[]
+  orderChats       OrderChat[]
+  behaviorEvents   UserBehaviorEvent[]
+  transactionWallets TransactionWallet[]
+  processedWalletPayments ProcessedWalletPayment[]
+  whitelistEntriesOwned VendorWhitelistEntry[] @relation("VendorWhitelistOwner")
+  vendorWhitelists      VendorWhitelistEntry[] @relation("WhitelistedBuyer")
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled    Boolean  @default(false)
+  description String?
+  updatedAt  DateTime @updatedAt
+}
+
+model MarketCategory {
+  id            String   @id @default(cuid())
+  label         String
+  icon          String   @default("[+]")
+  subcategories String[]
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([label])
+  @@index([isActive])
+}
+
+model AppEvent {
+  id          String   @id @default(cuid())
+  type        String
+  aggregate   String
+  aggregateId String
+  actorId     String?
+  payload     Json?
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([aggregate, aggregateId])
+  @@index([actorId])
+  @@index([processedAt, createdAt])
+}
+
+model SearchDocument {
+  id          String   @id @default(cuid())
+  productId   String   @unique
+  title       String
+  body        String
+  category    String
+  subcategory String
+  tags        String?
+  vendorName  String
+  isActive    Boolean  @default(true)
+  score       Float    @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([subcategory])
+  @@index([vendorName])
+  @@index([isActive, score])
+}
+
+model UserBehaviorEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String?
+  category  String?
+  action    String
+  weight    Float    @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([productId])
+  @@index([category])
+  @@index([action])
+}
+
+model AffiliateCommission {
+  id             String   @id @default(cuid())
+  orderId        String   @unique
+  referrerId     String
+  referredUserId String
+  marketFeeXMR   Decimal @db.Decimal(30, 12)
+  commissionXMR  Decimal @db.Decimal(30, 12)
+  rate           Float    @default(0.1)
+  status         String   @default("CREDITED")
+  createdAt      DateTime @default(now())
+
+  @@index([referrerId])
+  @@index([referredUserId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model AuthThrottle {
+  key         String    @id
+  failures   Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now())
+
+  @@index([lockedUntil])
+}
+
+model TransactionWallet {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  purpose           String
+  referenceId       String?
+  address           String   @unique
+  addressIndex      Int?
+  expectedAmountXMR Decimal? @db.Decimal(30, 12)
+  status            String   @default("ACTIVE")
+  expiresAt         DateTime?
+  createdAt         DateTime @default(now())
+  usedAt            DateTime?
+  processedPayments ProcessedWalletPayment[]
+
+  @@index([userId])
+  @@index([purpose, status])
+  @@index([addressIndex])
+  @@index([referenceId])
+  @@index([createdAt])
+}
+
+model ProcessedWalletPayment {
+  id                  String   @id @default(cuid())
+  txHash              String
+  address             String
+  userId              String
+  user                User     @relation(fields: [userId], references: [id])
+  transactionWalletId String?
+  transactionWallet   TransactionWallet? @relation(fields: [transactionWalletId], references: [id])
+  amountXMR           Decimal @db.Decimal(30, 12)
+  confirmations       Int      @default(0)
+  status              String   @default("CREDITED")
+  createdAt           DateTime @default(now())
+
+  @@unique([txHash, address])
+  @@index([userId])
+  @@index([transactionWalletId])
+  @@index([createdAt])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+model PrivateMirror {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  token       String   @unique
+  domain      String
+  createdAt   DateTime @default(now())
+}
+
+model PublicMirror {
+  id        String   @id @default(cuid())
+  url       String   @unique
+  status    String   @default("ONLINE") // ONLINE, OFFLINE, DEPRECATED
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  content     String
+  type        String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+
+model DepositAddress {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  address   String   @unique
+  addressIndex Int?
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([addressIndex])
+  @@index([status])
+}
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  orderId     String?  @unique
+  order       Order?   @relation("OrderSupportTicket", fields: [orderId], references: [id])
+  buyerId     String?
+  buyer       User?    @relation("BuyerSupportTickets", fields: [buyerId], references: [id])
+  vendorId    String?
+  vendor      User?    @relation("VendorSupportTickets", fields: [vendorId], references: [id])
+  subject     String
+  category    String
+  priority    String   @default("NORMAL")
+  status      String   @default("OPEN")
+  messages    TicketMessage[]
+  orders      Order[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([category, status])
+  @@index([createdAt])
+}
+
+model TicketMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id])
+  senderRole  String
+  senderId    String?
+  pgpContent  String
+  createdAt   DateTime @default(now())
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  fullDescription String?
+  priceXMR        Decimal @db.Decimal(30, 12)
+  quantity        Int      @default(1)
+  category        String   @default("Other")
+  subcategory     String   @default("Other")
+  originShipsFrom String   @default("Undefined")
+  shipsTo         String   @default("Worldwide")
+  imageUrl        String?
+  image1          String?
+  image2          String?
+  image3          String?
+  image4          String?
+  image5          String?
+  image6          String?
+  tags            String?
+  requiresFE      Boolean  @default(false)
+  isAutoshop      Boolean  @default(false)
+  isBulkAutoshop  Boolean  @default(false)
+  digitalPayload  String?
+  isPaused        Boolean  @default(false)
+  moderationStatus String  @default("APPROVED")
+  moderationNote   String?
+  moderatedAt      DateTime?
+  moderatedById    String?
+  productType     String   @default("PHYSICAL")
+  vendorId        String
+  vendor          User     @relation(fields: [vendorId], references: [id])
+  createdAt       DateTime @default(now())
+
+  isPromoted      Boolean  @default(false)
+  promotedUntil   DateTime?
+
+  shippingOptions ShippingOption[]
+  orders          Order[]  @relation("ProductOrders")
+  reviews         Review[] @relation("ProductReviews")
+  autoshopItems   AutoshopItem[]
+  favoritedBy     Favorite[]
+
+  @@index([vendorId])
+  @@index([category])
+  @@index([subcategory])
+  @@index([isPaused, quantity])
+  @@index([isPromoted, promotedUntil])
+  @@index([moderationStatus])
+  @@index([moderationStatus, createdAt])
+  @@index([createdAt])
+}
+
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actorName String?
+  action    String
+  target    String
+  targetId  String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([target, targetId])
+  @@index([createdAt])
+}
+
+model ShippingOption {
+  id        String   @id @default(cuid())
+  name      String
+  costXMR   Decimal @db.Decimal(30, 12)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model AutoshopItem {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  content   String
+  isSold    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+
+model InboxMessage {
+  id          String   @id @default(cuid())
+  senderId    String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  pgpMessage  String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model Conversation {
+  id             String   @id @default(cuid())
+  participantAId String
+  participantA   User     @relation("ConvA", fields: [participantAId], references: [id])
+  participantBId String
+  participantB   User     @relation("ConvB", fields: [participantBId], references: [id])
+  updatedAt      DateTime @updatedAt
+  messages       InboxMessage[]
+
+  @@unique([participantAId, participantBId])
+}
+
+
+model Review {
+  id              String   @id @default(cuid())
+  rating          Int
+  comment         String
+  buyerId         String
+  buyer           User     @relation("BuyerReviews", fields: [buyerId], references: [id])
+  productId       String
+  product         Product  @relation("ProductReviews", fields: [productId], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@index([buyerId])
+  @@index([productId])
+}
+
+model Order {
+  id             String   @id @default(cuid())
+  buyerId        String
+  buyer          User     @relation("BuyerOrders", fields: [buyerId], references: [id])
+  vendorId       String
+  vendor         User     @relation("VendorOrders", fields: [vendorId], references: [id])
+  productId      String
+  product         Product  @relation("ProductOrders", fields: [productId], references: [id])
+  status         String   @default("PENDING")
+  escrowAddress  String?
+  totalXMR       Decimal @db.Decimal(30, 12)
+  marketFeeXMR   Decimal @db.Decimal(30, 12)
+  shippingCostXMR Decimal   @default(0) @db.Decimal(30, 12)
+  shippingOptionName String?
+  shippingPayload String?
+  trackingNumber  String?
+  digitalPayloadReceived String?
+  shippedAt      DateTime?
+  reviewDone     Boolean  @default(false)
+  disputeTicketId String?
+  disputeTicket   SupportTicket? @relation(fields: [disputeTicketId], references: [id])
+  supportTicket    SupportTicket? @relation("OrderSupportTicket")
+  createdAt      DateTime @default(now())
+
+  paymentType      String   @default("WALLET")
+  paymentAddress   String?
+  paymentConfirmed Boolean  @default(false)
+
+  isMultisig       Boolean  @default(false)
+  buyerSigned      Boolean  @default(false)
+  vendorSigned     Boolean  @default(false)
+  marketSigned     Boolean  @default(false)
+  releaseSigs      String?
+
+  messages         OrderChat[]
+
+  @@index([buyerId, status])
+  @@index([vendorId, status])
+  @@index([productId])
+  @@index([createdAt])
+  @@index([status, shippedAt])
+}
+
+model OrderChat {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  content   String   // PGP Encrypted message
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@index([senderId])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  signature String
+  expiresAt DateTime?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([isActive, expiresAt])
+  @@index([createdAt])
+}
+
+
+model WithdrawalRequest {
+  sourceKey      String? @unique
+  networkFeeXMR  Decimal? @db.Decimal(30, 12)
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  address        String
+  amountXMR      Decimal @db.Decimal(30, 12)
+  feeXMR         Decimal    @default(0) @db.Decimal(30, 12)
+  status         String   @default("AWAITING_APPROVAL")
+  txHash         String?  @unique
+  processingStartedAt DateTime?
+  processedAt DateTime?
+  processedById String?
+  failureCode String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PlatformWallet {
+  id           String   @id @default("market_wallet")
+  balanceXMR   Decimal    @default(0) @db.Decimal(30, 12)
+  totalEarned  Decimal    @default(0) @db.Decimal(30, 12)
+  escrowTotal  Decimal    @default(0) @db.Decimal(30, 12)
+  createdAt    DateTime @default(now())
+}
+
+model PlatformFinance {
+  id              String   @id @default("treasury")
+  totalFeesSiphoned Decimal  @default(0) @db.Decimal(30, 12)
+  totalBondsSiphoned Decimal @default(0) @db.Decimal(30, 12)
+  totalWithdrawalsProcessed Decimal @default(0) @db.Decimal(30, 12)
+  updatedAt       DateTime @updatedAt
+}
+
+model MarketConfig {
+  id                String   @id @default("global_config")
+  isMaintenanceMode Boolean  @default(false)
+  globalCommission  Float    @default(0.04)
+  minWithdrawalXMR  Decimal    @default(0.1) @db.Decimal(30, 12)
+  updatedAt         DateTime @updatedAt
+}
+
+model AuthChallenge {
+  sessionVersion Int @default(0)
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  purpose   String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+model RateLimitBucket {
+  key          String   @id
+  count        Int      @default(0)
+  windowStart  DateTime @default(now())
+  blockedUntil DateTime?
+  updatedAt    DateTime @updatedAt
+
+  @@index([blockedUntil])
+  @@index([updatedAt])
+}
+
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  category    String
+  outcome     String
+  userId      String?
+  subjectHash String?
+  details     String?
+  createdAt   DateTime @default(now())
+
+  @@index([category, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model AuthSession {
+  id         String    @id
+  userId     String
+  role       String
+  expiresAt  DateTime
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model VendorWhitelistEntry {
+  id        String   @id @default(cuid())
+  vendorId  String
+  vendor    User     @relation("VendorWhitelistOwner", fields: [vendorId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User     @relation("WhitelistedBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([vendorId, buyerId])
+  @@index([vendorId, createdAt])
+  @@index([buyerId])
+}
+
+model PgpChallenge {
+  sessionVersion Int @default(0)
+  id        String   @id @default(cuid())
+  userId    String
+  token     String?
+  tokenHash String?
+  encryptedMessage String? @db.Text
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model FinancialLog {
+  id        String   @id @default(cuid())
+  type      String
+  amountXMR Decimal @db.Decimal(30, 12)
+  userId    String?
+  orderId   String?
+  txHash    String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([userId])
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+// Original monetary values retained before converting legacy floating-point columns.
+model MonetaryMigrationSnapshot {
+  tableName String
+  recordId String
+  values Json
+  createdAt DateTime @default(now())
+
+  @@id([tableName, recordId])
+}

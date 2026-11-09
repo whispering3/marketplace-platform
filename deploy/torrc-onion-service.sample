@@ -1,0 +1,8 @@
+# Per-host example. Preserve existing identities before changing HiddenServiceDir.
+# Use a different directory on each host for mirrors with distinct identities.
+HiddenServiceDir /var/lib/tor/market/
+HiddenServiceVersion 3
+HiddenServicePort 80 127.0.0.1:8080
+
+# Enable only if the installed Tor package supports PoW defenses.
+# HiddenServicePoWDefensesEnabled 1

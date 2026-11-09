@@ -1,0 +1,27 @@
+[Unit]
+Description=Market application %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=market
+Group=market
+WorkingDirectory=/srv/market/%i
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/market/app.env
+EnvironmentFile=/etc/market/%i.env
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start --hostname 127.0.0.1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/market/%i/.next/cache
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

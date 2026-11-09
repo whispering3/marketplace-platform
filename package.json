@@ -1,26 +1,73 @@
 {
   "name": "market-app",
   "version": "0.1.0",
+  "description": "Experimental, self-hosted marketplace application built with Next.js and PostgreSQL.",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "next dev",
+    "local:test:setup": "tsx scripts/setup-local-test.ts",
+    "local:test:pgp": "tsx scripts/local-test-pgp.ts",
+    "local:test:start": "powershell -ExecutionPolicy Bypass -File scripts/start-local-test.ps1",
+    "local:test:verify": "tsx scripts/verify-local-test.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "db:dev:start": "powershell -ExecutionPolicy Bypass -File scripts/dev-postgres.ps1 start",
+    "db:dev:stop": "powershell -ExecutionPolicy Bypass -File scripts/dev-postgres.ps1 stop",
+    "db:dev:status": "powershell -ExecutionPolicy Bypass -File scripts/dev-postgres.ps1 status",
+    "db:backup": "powershell -ExecutionPolicy Bypass -File scripts/db-backup.ps1",
+    "db:restore": "powershell -ExecutionPolicy Bypass -File scripts/db-restore.ps1",
+    "lint": "eslint",
+    "test": "tsx scripts/run-production-tests.ts && tsx scripts/test-rpc-auth.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "prisma validate && tsc --noEmit && eslint && npm test && next build",
+    "seed:demo": "tsx scripts/seed-demo-users.ts",
+    "wallet:sync": "tsx scripts/sync-wallet-deposits.ts",
+    "prod:check": "tsx scripts/production-readiness.ts",
+    "onion:sync": "node prisma/register_mirrors.js",
+    "smoke:blue": "powershell -ExecutionPolicy Bypass -File scripts/blue-green-smoke.ps1 -BaseUrl http://127.0.0.1:3000",
+    "smoke:green": "powershell -ExecutionPolicy Bypass -File scripts/blue-green-smoke.ps1 -BaseUrl http://127.0.0.1:3001",
+    "test:integration": "node --conditions=react-server --import tsx scripts/test-financial-integration.ts",
+    "wallet:reconcile": "tsx scripts/reconcile-wallet.ts",
+    "security:cleanup": "tsx scripts/cleanup-security-state.ts",
+    "test:browser": "tsx scripts/test-browser.ts"
   },
   "dependencies": {
-    "next": "16.2.3",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.7.0",
+    "dotenv": "^17.4.1",
+    "jose": "^6.2.2",
+    "lucide-react": "^1.8.0",
+    "next": "^16.3.5",
+    "openpgp": "^6.3.0",
+    "pg": "^8.23.0",
+    "prisma": "^7.7.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.3",
+    "eslint-config-next": "^16.3.5",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "mysql2": "3.24.4",
+    "esbuild": "0.28.2"
+  },
+  "engines": {
+    "node": ">=22.12 <23 || >=24 <25"
   }
 }

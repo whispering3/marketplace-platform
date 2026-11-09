@@ -1,0 +1,16 @@
+[Unit]
+Description=Olympus expired security state cleanup
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=market
+Group=market
+WorkingDirectory=/srv/market/financial
+EnvironmentFile=/etc/market/financial.env
+ExecStart=/usr/bin/npm run security:cleanup
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/market/financial

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Olympus security state cleanup daily
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30m
+Persistent=true
+Unit=market-security-cleanup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      SESSION_SECRET: ci_session_secret_change_in_prod
+      AUTH_SALT: ci_auth_salt_change_in_prod
+      SETUP_KEY: ci_setup_key
+      ADMIN_URL_SECRET: staff-ci
+      ADMIN_MSID: STAFF-CI-01
+      ONION_URL: local.test
+      ADMIN_XMR_ADDRESS: 48bWuoDG7LtmctgxE3X8dNTE5GUN6acJjxXkh4hN9XjXzEx7zyCNpHTPMHj8FvWgHveb8USV6NyZx7SvrZb9JpjjYKcQc7M
+      XMR_RPC_URL: http://127.0.0.1:18082/json_rpc
+      XMR_RPC_USER: ci
+      XMR_RPC_PASS: ci
+      WALLET_SYNC_SECRET: ci_wallet_sync_secret
+      XMR_DEPOSIT_CONFIRMATIONS: 10
+      XMR_RPC_TIMEOUT_MS: 1000
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npx prisma generate
+      - run: npx prisma validate
+      - run: npx prisma migrate deploy
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run build
+
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

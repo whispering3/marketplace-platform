@@ -1,0 +1,31 @@
+export const tabs = [
+  ["overview", "Overview"],
+  ["users", "Users"],
+  ["vendors", "Vendors"],
+  ["products", "Products"],
+  ["orders", "Transactions"],
+  ["wallets", "Wallets"],
+  ["support", "Support"],
+  ["categories", "Categories"],
+  ["logs", "Logs"],
+  ["flags", "Features"],
+  ["mirrors", "Mirrors"],
+  ["broadcast", "Announcements"],
+  ["system", "System"],
+] as const;
+
+export const tabPermissions: Record<string, string | null> = {
+  overview: null,
+  users: "users",
+  vendors: "vendors",
+  products: "products",
+  orders: "orders",
+  wallets: "wallets",
+  support: "support",
+  categories: "categories",
+  logs: "logs",
+  flags: "system",
+  mirrors: "mirrors",
+  broadcast: "broadcast",
+  system: "system",
+};

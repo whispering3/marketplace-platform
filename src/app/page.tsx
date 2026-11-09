@@ -1,65 +1,158 @@
-import Image from "next/image";
+import { getShieldSession, isShieldVerified } from "@/lib/captcha-sentinel";
+import { redirect } from "next/navigation";
+import CaptchaDisplay from "@/components/CaptchaDisplay";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Gateway({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  if (await isShieldVerified()) {
+    redirect("/auth/login");
+  }
+
+  const session = await getShieldSession();
+  const { error } = await searchParams;
+
+  if (!session) {
+    return (
+      <div className="box" style={{ maxWidth: '450px', margin: '60px auto', textAlign: 'center' }}>
+        <h2 style={{ color: '#f26822' }}>SECURE ACCESS GATE</h2>
+        <p style={{ fontSize: '12px', color: '#666' }}>Start a private verification session before entering the marketplace.</p>
+        <form action="/api/sentinel/start" method="post">
+          <button type="submit" style={{ marginTop: '20px', padding: '12px 20px', fontWeight: 'bold' }}>
+            START VERIFICATION
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  const sessionTimestamp = session.iat ? session.iat * 1000 : 0;
+  const isBlocked = !!session.blockedUntil;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div style={{ backgroundColor: '#050505', minHeight: '100vh', padding: '40px 20px', color: '#ccc', fontFamily: 'monospace' }}>
+      <div style={{ maxWidth: '480px', margin: '0 auto', border: '1px solid #222', backgroundColor: '#0f0f0f', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+
+        {/* Header - Silk Road inspired branding */}
+        <div style={{ padding: '20px', borderBottom: '1px solid #222', textAlign: 'center', backgroundColor: '#151515' }}>
+          <h2 style={{ color: isBlocked ? '#f44336' : '#f26822', margin: 0, letterSpacing: '4px', fontSize: '24px', fontWeight: 'bold' }}>
+            OLYMPUS MARKET
+          </h2>
+          <div style={{ fontSize: '9px', color: '#555', marginTop: '5px', fontWeight: 'bold' }}>
+            WHAT USE IS AN UNLOADED WEAPON?
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div style={{ padding: '30px' }}>
+          {isBlocked ? (
+            <div style={{ border: '1px solid #f4433622', padding: '20px', textAlign: 'center', backgroundColor: '#1a0000' }}>
+               <h3 style={{ color: '#f44336', margin: '0 0 10px 0' }}>ACCESS RESTRICTED</h3>
+               <p style={{ fontSize: '11px', color: '#888', lineHeight: '1.5' }}>
+                 Your connection has been flagged for abnormal behavior (Multiple failed proof-of-work attempts).
+               </p>
+               <div style={{ color: '#f26822', fontWeight: 'bold', margin: '20px 0', fontSize: '13px' }}>
+                 COOLDOWN IN PROGRESS
+               </div>
+               <form action="/">
+                  <button type="submit" style={{ backgroundColor: '#222', color: '#888', border: '1px solid #333', padding: '8px 16px', cursor: 'pointer', fontSize: '11px' }}>
+                    REFRESH GATEWAY STATUS
+                  </button>
+               </form>
+            </div>
+          ) : (
+            <>
+              {/* OpSec Banner */}
+              <div style={{ marginBottom: '25px', padding: '10px', borderLeft: '2px solid #f26822', backgroundColor: '#181818', fontSize: '11px' }}>
+                <span style={{ color: '#f26822' }}>[SENTINEL]</span> Solve the cryptographic puzzle below to establish a secure handshake with the marketplace.
+              </div>
+
+              <div style={{ marginBottom: '25px' }}>
+                <CaptchaDisplay text={session.captcha} />
+              </div>
+
+              <form action="/api/sentinel/verify" method="post">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                   <div>
+                      <label htmlFor="captcha" style={{ fontSize: '10px', color: '#666', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>
+                        Verification Code:
+                      </label>
+                      <input
+                        type="text"
+                        id="captcha"
+                        name="captcha"
+                        required
+                        autoFocus
+                        autoComplete="off"
+                        placeholder="[ ENTER CODE ]"
+                        style={{
+                          width: '100%',
+                          padding: '15px',
+                          backgroundColor: '#050505',
+                          border: '1px solid #333',
+                          color: '#f26822',
+                          textAlign: 'center',
+                          fontSize: '20px',
+                          letterSpacing: '6px',
+                          outline: 'none',
+                          boxShadow: 'inset 0 0 10px #000'
+                        }}
+                      />
+                   </div>
+
+                   {error && (
+                     <div style={{ fontSize: '11px', padding: '12px', border: '1px solid #f4433644', backgroundColor: '#1a0000', color: '#f44336', textAlign: 'center' }}>
+                       {error}
+                     </div>
+                   )}
+
+                     <button type="submit" style={{
+                       width: '100%',
+                       padding: '15px',
+                       fontWeight: 'bold',
+                       backgroundColor: '#f26822',
+                       color: '#000',
+                       border: 'none',
+                       cursor: 'pointer',
+                       letterSpacing: '2px',
+                       textTransform: 'uppercase',
+                       fontSize: '13px'
+                     }}>
+                       START ENCRYPTED SESSION
+                     </button>
+
+                  </div>
+                </form>
+                <form action="/api/sentinel/start" method="post" style={{ marginTop: '20px', textAlign: 'center' }}>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: 0,
+                      background: 'transparent',
+                      border: 0,
+                      color: '#666',
+                      fontSize: '10px',
+                      textDecoration: 'underline',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    [ CANNOT READ? GENERATE NEW CODE ]
+                  </button>
+                </form>
+              </>
+            )}
+
+          {/* Infrastructure Footer */}
+          <div style={{ marginTop: '30px', borderTop: '1px solid #222', paddingTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#444' }}>
+             <div>NODE_SIG: {session.captcha.slice(0, 3)}..{String(sessionTimestamp).slice(-4)}</div>
+             <div>UPTIME: 99.98%</div>
+          </div>
         </div>
-      </main>
+      </div>
+
+      <div style={{ textAlign: 'center', marginTop: '30px', fontSize: '10px', color: '#333' }}>
+         &copy; OLYMPUS | {new Date().getFullYear()}
+      </div>
     </div>
   );
 }
